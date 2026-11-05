@@ -299,19 +299,34 @@ class provider_test extends \core_privacy\tests\provider_testcase {
             'timecreated' => 750,
             'timemodified' => 750,
         ]);
+        $DB->insert_record(self::TABLE_EXC, (object)[
+            'status' => 1,
+            'courseid' => 999993,
+            'userid' => $this->user->id,
+            'timestart' => 0,
+            'timeend' => 1000,
+            'modifierid' => $this->user->id,
+            'timecreated' => 760,
+            'timemodified' => 760,
+        ]);
 
         $this->export_all_data_for_user($this->user->id, 'local_augmented_teacher');
 
         $writer = writer::with_context(\context_system::instance());
         $exclusions = $writer->get_data(['exclusions'])->records;
-        $this->assertCount(1, $exclusions);
+        $this->assertCount(2, $exclusions);
         $this->assertEquals($this->user->id, $exclusions[0]['userid']);
-        $this->assertArrayNotHasKey('modifierid', $exclusions[0]);
+        foreach ($exclusions as $exclusion) {
+            $this->assertArrayNotHasKey('modifierid', $exclusion);
+        }
 
         $changes = $writer->get_data(['exclusion_changes'])->records;
-        $this->assertCount(1, $changes);
-        $this->assertEquals($this->user->id, $changes[0]['modifierid']);
-        $this->assertArrayNotHasKey('userid', $changes[0]);
+        $this->assertCount(2, $changes);
+        $this->assertEqualsCanonicalizing([750, 760], array_map('intval', array_column($changes, 'timecreated')));
+        foreach ($changes as $change) {
+            $this->assertEquals($this->user->id, $change['modifierid']);
+            $this->assertArrayNotHasKey('userid', $change);
+        }
     }
 
     /** The user context user list contains the office-hours owner. */

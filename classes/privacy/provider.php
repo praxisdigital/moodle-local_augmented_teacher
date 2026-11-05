@@ -388,8 +388,8 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
             "SELECT exc.*
                FROM {local_augmented_teacher_exc} exc
                LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel AND ctx.instanceid = exc.courseid
-              WHERE exc.modifierid = :userid AND exc.userid <> :userid2 AND ctx.id IS NULL",
-            ['contextlevel' => CONTEXT_COURSE, 'userid' => $userid, 'userid2' => $userid]
+              WHERE exc.modifierid = :userid AND ctx.id IS NULL",
+            ['contextlevel' => CONTEXT_COURSE, 'userid' => $userid]
         );
         foreach ($records as $recordid => $record) {
             $records[$recordid] = (object)[
