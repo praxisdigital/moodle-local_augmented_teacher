@@ -8,6 +8,7 @@ defined('MOODLE_INTERNAL') || die();
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\metadata\types\database_table;
+use core_privacy\local\metadata\types\subsystem_link;
 use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\userlist;
@@ -95,22 +96,26 @@ class provider_test extends \core_privacy\tests\provider_testcase {
 
         $DB->insert_record(self::TABLE_SENT, (object)[
             'userid' => $this->user->id,
+            'courseid' => $this->course->id,
             'reminderid' => $this->otherreminderid,
             'timesent' => 300,
         ]);
         $DB->insert_record(self::TABLE_SENT, (object)[
             'userid' => $this->otheruser->id,
+            'courseid' => $this->course->id,
             'reminderid' => $this->reminderid,
             'timesent' => 400,
         ]);
         $DB->insert_record(self::TABLE_LOG, (object)[
             'userid' => $this->user->id,
+            'courseid' => $this->course->id,
             'remid' => $this->otherreminderid,
             'mid' => 123,
             'timecreated' => 300,
         ]);
         $DB->insert_record(self::TABLE_LOG, (object)[
             'userid' => $this->otheruser->id,
+            'courseid' => $this->course->id,
             'remid' => $this->reminderid,
             'mid' => 456,
             'timecreated' => 400,
@@ -149,9 +154,12 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     public function test_get_metadata_declares_all_personal_data_tables_and_fields(): void {
         $collection = provider::get_metadata(new collection('local_augmented_teacher'));
         $tables = [];
+        $hascoremessagelink = false;
         foreach ($collection->get_collection() as $item) {
             if ($item instanceof database_table) {
                 $tables[$item->get_name()] = $item;
+            } else if ($item instanceof subsystem_link && $item->get_name() === 'core_message') {
+                $hascoremessagelink = true;
             }
         }
 
@@ -160,8 +168,8 @@ class provider_test extends \core_privacy\tests\provider_testcase {
                 'id', 'userid', 'courseid', 'cmid', 'cmid2', 'title', 'messagetype', 'message', 'type',
                 'timeinterval', 'enabled', 'deleted', 'timecreated', 'timemodified',
             ],
-            self::TABLE_SENT => ['id', 'userid', 'reminderid', 'timesent'],
-            self::TABLE_LOG => ['id', 'userid', 'remid', 'mid', 'timecreated'],
+            self::TABLE_SENT => ['id', 'userid', 'courseid', 'reminderid', 'timesent'],
+            self::TABLE_LOG => ['id', 'userid', 'courseid', 'remid', 'mid', 'timecreated'],
             self::TABLE_EXC => [
                 'id', 'status', 'courseid', 'userid', 'timestart', 'timeend', 'modifierid', 'timecreated', 'timemodified',
             ],
@@ -172,6 +180,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         foreach ($expected as $tablename => $fields) {
             $this->assertEqualsCanonicalizing($fields, array_keys($tables[$tablename]->get_privacy_fields()));
         }
+        $this->assertTrue($hascoremessagelink);
     }
 
     /** Check that user contexts include their course and personal office-hours contexts. */
@@ -388,7 +397,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /** Ensure an individual erasure removes only that user's data and anonymises their modifier ID. */
-    public function test_delete_data_for_user_is_scoped_to_user(): void {
+    public function test_owner_erasure_preserves_recipient_histories_until_course_cleanup(): void {
         global $DB;
         $contexts = provider::get_contexts_for_userid($this->user->id);
         $approved = new approved_contextlist($this->user, 'local_augmented_teacher', $contexts->get_contextids());
@@ -403,6 +412,16 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $this->assertTrue($DB->record_exists(self::TABLE_SENT, ['userid' => $this->otheruser->id]));
         $this->assertTrue($DB->record_exists(self::TABLE_LOG, ['userid' => $this->otheruser->id]));
         $this->assertEquals(0, $DB->get_field(self::TABLE_EXC, 'modifierid', ['userid' => $this->otheruser->id]));
+
+        $recipientcontexts = provider::get_contexts_for_userid($this->otheruser->id);
+        $this->assertContains(
+            \context_course::instance($this->course->id)->id,
+            array_map('intval', $recipientcontexts->get_contextids())
+        );
+
+        provider::delete_data_for_all_users_in_context(\context_course::instance($this->course->id));
+        $this->assertEquals(0, $DB->count_records(self::TABLE_SENT));
+        $this->assertEquals(0, $DB->count_records(self::TABLE_LOG));
     }
 
     /** Ensure course-context deletion removes all course data but leaves user-context data. */

@@ -158,11 +158,13 @@ $string['privacy:metadata:local_augmented_teacher_rem:timemodified'] = 'When the
 $string['privacy:metadata:local_augmented_teacher_sent'] = 'Records reminders sent to individual users.';
 $string['privacy:metadata:local_augmented_teacher_sent:id'] = 'The sent reminder record identifier.';
 $string['privacy:metadata:local_augmented_teacher_sent:userid'] = 'The user who received the reminder.';
+$string['privacy:metadata:local_augmented_teacher_sent:courseid'] = 'The course associated with the reminder delivery.';
 $string['privacy:metadata:local_augmented_teacher_sent:reminderid'] = 'The reminder configuration associated with the delivery.';
 $string['privacy:metadata:local_augmented_teacher_sent:timesent'] = 'When the reminder was sent.';
 $string['privacy:metadata:local_augmented_teacher_log'] = 'Records messages sent to users by reminders.';
 $string['privacy:metadata:local_augmented_teacher_log:id'] = 'The message log record identifier.';
 $string['privacy:metadata:local_augmented_teacher_log:userid'] = 'The user who received the message.';
+$string['privacy:metadata:local_augmented_teacher_log:courseid'] = 'The course associated with the message.';
 $string['privacy:metadata:local_augmented_teacher_log:remid'] = 'The reminder configuration associated with the message.';
 $string['privacy:metadata:local_augmented_teacher_log:mid'] = 'The identifier of the corresponding Moodle message.';
 $string['privacy:metadata:local_augmented_teacher_log:timecreated'] = 'When the message was sent.';
@@ -182,6 +184,7 @@ $string['privacy:metadata:local_augmented_teacher_ofh:userid'] = 'The user whose
 $string['privacy:metadata:local_augmented_teacher_ofh:dayofweek'] = 'The day of the week for the configured office hours.';
 $string['privacy:metadata:local_augmented_teacher_ofh:timestart'] = 'The start time of the office hours.';
 $string['privacy:metadata:local_augmented_teacher_ofh:timeend'] = 'The end time of the office hours.';
+$string['privacy:metadata:core_message'] = 'Reminder messages are sent and stored by Moodle messaging.';
 
 // Capabilities
 $string['augmented_teacher:receivereminder'] = 'Receive reminder';

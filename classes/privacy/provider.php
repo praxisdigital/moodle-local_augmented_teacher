@@ -50,8 +50,8 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
                 'id', 'userid', 'courseid', 'cmid', 'cmid2', 'title', 'messagetype', 'message', 'type',
                 'timeinterval', 'enabled', 'deleted', 'timecreated', 'timemodified',
             ],
-            self::TABLE_SENT => ['id', 'userid', 'reminderid', 'timesent'],
-            self::TABLE_LOG => ['id', 'userid', 'remid', 'mid', 'timecreated'],
+            self::TABLE_SENT => ['id', 'userid', 'courseid', 'reminderid', 'timesent'],
+            self::TABLE_LOG => ['id', 'userid', 'courseid', 'remid', 'mid', 'timecreated'],
             self::TABLE_EXC => [
                 'id', 'status', 'courseid', 'userid', 'timestart', 'timeend', 'modifierid', 'timecreated', 'timemodified',
             ],
@@ -69,6 +69,8 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
                 'privacy:metadata:' . $tablename
             );
         }
+
+        $collection->add_subsystem_link('core_message', [], 'privacy:metadata:core_message');
 
         return $collection;
     }
@@ -99,15 +101,12 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
             ['contextlevel' => $contextlevel, 'userid' => $userid]
         );
 
-        foreach ([self::TABLE_SENT => 'reminderid', self::TABLE_LOG => 'remid'] as $table => $reminderfield) {
+        foreach ([self::TABLE_SENT, self::TABLE_LOG] as $table) {
             $contextlist->add_from_sql(
                 "SELECT DISTINCT ctx.id
                    FROM {" . $table . "} item
-                   JOIN {local_augmented_teacher_rem} rem ON rem.id = item." . $reminderfield . "
-                   LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-                   JOIN {context} ctx ON ctx.contextlevel = :contextlevel
-                        AND ctx.instanceid = COALESCE(rem.courseid, cm.course)
-                  WHERE item.userid = :userid",
+                   JOIN {context} ctx ON ctx.contextlevel = :contextlevel AND ctx.instanceid = item.courseid
+                  WHERE item.userid = :userid AND item.courseid IS NOT NULL",
                 ['contextlevel' => $contextlevel, 'userid' => $userid]
             );
         }
@@ -165,8 +164,8 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
         if ($context instanceof \context_course) {
             $courseid = $context->instanceid;
             $reminderids = self::get_reminder_ids_for_course($courseid);
-            self::delete_records_by_ids(self::TABLE_SENT, 'reminderid', $reminderids);
-            self::delete_records_by_ids(self::TABLE_LOG, 'remid', $reminderids);
+            $DB->delete_records(self::TABLE_SENT, ['courseid' => $courseid]);
+            $DB->delete_records(self::TABLE_LOG, ['courseid' => $courseid]);
             self::delete_records_by_ids(self::TABLE_REM, 'id', $reminderids);
             $DB->delete_records(self::TABLE_EXC, ['courseid' => $courseid]);
         } else if ($context instanceof \context_user) {
@@ -216,15 +215,11 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
                     UNION
                     SELECT item.userid AS userid
                       FROM {local_augmented_teacher_sent} item
-                      JOIN {local_augmented_teacher_rem} rem ON rem.id = item.reminderid
-                      LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-                     WHERE COALESCE(rem.courseid, cm.course) = :courseid2
+                     WHERE item.courseid = :courseid2
                     UNION
                     SELECT item.userid AS userid
                       FROM {local_augmented_teacher_log} item
-                      JOIN {local_augmented_teacher_rem} rem ON rem.id = item.remid
-                      LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-                     WHERE COALESCE(rem.courseid, cm.course) = :courseid3
+                     WHERE item.courseid = :courseid3
                     UNION
                     SELECT exc.userid AS userid
                       FROM {local_augmented_teacher_exc} exc
@@ -248,18 +243,14 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
                     UNION
                     SELECT item.userid AS userid
                       FROM {local_augmented_teacher_sent} item
-                      LEFT JOIN {local_augmented_teacher_rem} rem ON rem.id = item.reminderid
-                      LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
                       LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel2
-                           AND ctx.instanceid = COALESCE(rem.courseid, cm.course)
+                           AND ctx.instanceid = item.courseid
                      WHERE ctx.id IS NULL
                     UNION
                     SELECT item.userid AS userid
                       FROM {local_augmented_teacher_log} item
-                      LEFT JOIN {local_augmented_teacher_rem} rem ON rem.id = item.remid
-                      LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
                       LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel3
-                           AND ctx.instanceid = COALESCE(rem.courseid, cm.course)
+                           AND ctx.instanceid = item.courseid
                      WHERE ctx.id IS NULL
                     UNION
                     SELECT exc.userid AS userid
@@ -311,13 +302,11 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
         );
         self::export_records($writer, 'reminders', $records);
 
-        foreach ([self::TABLE_SENT => 'reminderid', self::TABLE_LOG => 'remid'] as $table => $reminderfield) {
+        foreach ([self::TABLE_SENT, self::TABLE_LOG] as $table) {
             $records = $DB->get_records_sql(
                 "SELECT item.*
                    FROM {" . $table . "} item
-                   JOIN {local_augmented_teacher_rem} rem ON rem.id = item." . $reminderfield . "
-                   LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-                  WHERE item.userid = :userid AND COALESCE(rem.courseid, cm.course) = :courseid",
+                  WHERE item.userid = :userid AND item.courseid = :courseid",
                 ['userid' => $userid, 'courseid' => $courseid]
             );
             self::export_records($writer, $table === self::TABLE_SENT ? 'sent_reminders' : 'message_log', $records);
@@ -372,14 +361,11 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
         );
         self::export_records($writer, 'reminders', $records);
 
-        foreach ([self::TABLE_SENT => 'reminderid', self::TABLE_LOG => 'remid'] as $table => $reminderfield) {
+        foreach ([self::TABLE_SENT, self::TABLE_LOG] as $table) {
             $records = $DB->get_records_sql(
                 "SELECT item.*
                    FROM {" . $table . "} item
-                   LEFT JOIN {local_augmented_teacher_rem} rem ON rem.id = item." . $reminderfield . "
-                   LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-                   LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel
-                        AND ctx.instanceid = COALESCE(rem.courseid, cm.course)
+                   LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel AND ctx.instanceid = item.courseid
                   WHERE item.userid = :userid AND ctx.id IS NULL",
                 ['contextlevel' => CONTEXT_COURSE, 'userid' => $userid]
             );
@@ -455,13 +441,11 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
         [$userinsql, $userparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'privacyuser');
         $params = $userparams + ['courseid' => $courseid];
 
-        foreach ([self::TABLE_SENT => 'reminderid', self::TABLE_LOG => 'remid'] as $table => $reminderfield) {
+        foreach ([self::TABLE_SENT, self::TABLE_LOG] as $table) {
             $records = $DB->get_records_sql(
                 "SELECT item.id
                    FROM {" . $table . "} item
-                   JOIN {local_augmented_teacher_rem} rem ON rem.id = item." . $reminderfield . "
-                   LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-                  WHERE item.userid {$userinsql} AND COALESCE(rem.courseid, cm.course) = :courseid",
+                  WHERE item.userid {$userinsql} AND item.courseid = :courseid",
                 $params
             );
             self::delete_records_by_ids($table, 'id', array_keys($records));
@@ -510,15 +494,12 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
         );
         $reminderids = array_keys($reminders);
 
-        foreach ([self::TABLE_SENT => 'reminderid', self::TABLE_LOG => 'remid'] as $table => $reminderfield) {
+        foreach ([self::TABLE_SENT, self::TABLE_LOG] as $table) {
             $itemuserfilter = $userids === null ? '' : " AND item.userid {$userfilter}";
             $records = $DB->get_records_sql(
                 "SELECT item.id
                    FROM {" . $table . "} item
-                   LEFT JOIN {local_augmented_teacher_rem} rem ON rem.id = item." . $reminderfield . "
-                   LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-                   LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel
-                        AND ctx.instanceid = COALESCE(rem.courseid, cm.course)
+                   LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel AND ctx.instanceid = item.courseid
                   WHERE ctx.id IS NULL" . $itemuserfilter,
                 ['contextlevel' => CONTEXT_COURSE] + $userparams
             );
@@ -619,17 +600,11 @@ class provider implements metadata_provider, plugin_provider, core_userlist_prov
               WHERE rem.userid = :userid AND ctx.id IS NULL",
             "SELECT item.id
                FROM {local_augmented_teacher_sent} item
-               LEFT JOIN {local_augmented_teacher_rem} rem ON rem.id = item.reminderid
-               LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-               LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel
-                    AND ctx.instanceid = COALESCE(rem.courseid, cm.course)
+               LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel AND ctx.instanceid = item.courseid
               WHERE item.userid = :userid AND ctx.id IS NULL",
             "SELECT item.id
                FROM {local_augmented_teacher_log} item
-               LEFT JOIN {local_augmented_teacher_rem} rem ON rem.id = item.remid
-               LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
-               LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel
-                    AND ctx.instanceid = COALESCE(rem.courseid, cm.course)
+               LEFT JOIN {context} ctx ON ctx.contextlevel = :contextlevel AND ctx.instanceid = item.courseid
               WHERE item.userid = :userid AND ctx.id IS NULL",
             "SELECT exc.id
                FROM {local_augmented_teacher_exc} exc
