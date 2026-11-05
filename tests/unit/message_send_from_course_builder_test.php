@@ -22,14 +22,18 @@ defined('MOODLE_INTERNAL') || die();
  */
 class message_send_from_course_builder_test extends basic_testcase
 {
+    public function test_append_send_from_course_text_to_message(): void {
+        foreach (['da', 'en', 'es'] as $lang) {
+            $this->assert_appends_send_from_course_text_for_language($lang);
+        }
+    }
+
     /**
-     * @dataProvider language_provider
      * @param string $lang
      * @throws coding_exception
      * @throws moodle_exception
      */
-    public function test_append_send_from_course_text_to_message(string $lang): void {
-
+    private function assert_appends_send_from_course_text_for_language(string $lang): void {
         $strings = [
             'en' => 'A English test text',
             'da' => 'A Danish test text',
@@ -63,17 +67,6 @@ class message_send_from_course_builder_test extends basic_testcase
     }
 
     /**
-     * @return string[][]
-     */
-    public function language_provider(): array {
-        return [
-            ['da'],
-            ['en'],
-            ['es'],
-        ];
-    }
-
-    /**
      * @param string[] $langs ["en" => "Some english text"]
      * @return lang_string
      */
@@ -81,7 +74,7 @@ class message_send_from_course_builder_test extends basic_testcase
 
         $default_lang = 'en';
         $string = $this->createMock(lang_string::class);
-        $string->expects(self::once())
+        $string->expects($this->once())
             ->method('out')
             ->willReturnCallback(function($lang) use($langs, $default_lang) {
                 if (!isset($langs[$lang])) {

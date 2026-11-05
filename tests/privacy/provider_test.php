@@ -17,7 +17,6 @@ use core_privacy\local\request\writer;
  * Tests for the Augmented Teacher privacy provider.
  *
  * @package    local_augmented_teacher
- * @covers     \local_augmented_teacher\privacy\provider
  */
 class provider_test extends \core_privacy\tests\provider_testcase {
 
