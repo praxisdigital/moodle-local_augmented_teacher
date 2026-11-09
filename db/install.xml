@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/augmented_teacher/db" VERSION="20190108" COMMENT="XMLDB file for Moodle local/augmented_teacher"
+<XMLDB PATH="local/augmented_teacher/db" VERSION="2026110500" COMMENT="XMLDB file for Moodle local/augmented_teacher"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -29,6 +29,7 @@
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="18" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="18" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="18" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="reminderid" TYPE="int" LENGTH="18" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timesent" TYPE="int" LENGTH="18" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>
@@ -39,12 +40,15 @@
         <INDEX NAME="userid_reminderid_ix" UNIQUE="false" FIELDS="userid,reminderid"/>
         <INDEX NAME="reminderid_ix" UNIQUE="false" FIELDS="reminderid"/>
         <INDEX NAME="userid_ix" UNIQUE="false" FIELDS="userid"/>
+        <INDEX NAME="courseid_ix" UNIQUE="false" FIELDS="courseid"/>
+        <INDEX NAME="userid_courseid_ix" UNIQUE="false" FIELDS="userid,courseid"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="local_augmented_teacher_log" COMMENT="local_augmented_teacher_log table retrofitted from MySQL">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="18" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="18" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="18" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="remid" TYPE="int" LENGTH="18" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="mid" TYPE="int" LENGTH="18" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="18" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
@@ -52,6 +56,10 @@
       <KEYS>
         <KEY NAME="id" TYPE="primary" FIELDS="id"/>
       </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid_ix" UNIQUE="false" FIELDS="courseid"/>
+        <INDEX NAME="userid_courseid_ix" UNIQUE="false" FIELDS="userid,courseid"/>
+      </INDEXES>
     </TABLE>
     <TABLE NAME="local_augmented_teacher_exc" COMMENT="local_augmented_teacher_exc table retrofitted from MySQL">
       <FIELDS>

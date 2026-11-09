@@ -218,6 +218,7 @@ function local_augmented_teacher_send_reminder_message() {
                     if ($mid = message_post_message($userfrom, $user, $message, FORMAT_HTML)) {
                         $log = new stdClass();
                         $log->userid = $user->id;
+                        $log->courseid = $course->id;
                         $log->remid = $reminder->id;
                         $log->mid = $mid;
                         $log->timecreated = time();
@@ -350,6 +351,7 @@ function local_augmented_teacher_send_notloggedin_reminder_message() {
                     if ($mid = message_post_message($userfrom, $user, $message, FORMAT_HTML)) {
                         $log = new stdClass();
                         $log->userid = $user->id;
+                        $log->courseid = $course->id;
                         $log->remid = $reminder->id;
                         $log->mid = $mid;
                         $log->timecreated = time();
@@ -357,6 +359,7 @@ function local_augmented_teacher_send_notloggedin_reminder_message() {
 
                         $DB->insert_record('local_augmented_teacher_sent', (object)[
                             'userid' => $user->id,
+                            'courseid' => $course->id,
                             'reminderid' => $reminder->id,
                             'timesent' => $timenow
                         ]);
@@ -526,9 +529,10 @@ function local_augmented_teacher_send_activity_recommendation() {
                      );
 
                      if ($mid = message_post_message($userfrom, $user, $message, FORMAT_HTML)) {
-                         $log = new stdClass();
-                         $log->userid = $user->id;
-                         $log->remid = $reminder->id;
+                          $log = new stdClass();
+                          $log->userid = $user->id;
+                          $log->courseid = $course->id;
+                          $log->remid = $reminder->id;
                          $log->mid = $mid;
                          $log->timecreated = time();
                          $DB->insert_record('local_augmented_teacher_log', $log);

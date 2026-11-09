@@ -209,5 +209,46 @@ function xmldb_local_augmented_teacher_upgrade($oldversion) {
 
         upgrade_plugin_savepoint(true, 2022073000, 'local', 'augmented_teacher');
     }
+
+    if ($oldversion < 2026110500) {
+        $tables = [
+            'local_augmented_teacher_sent' => 'reminderid',
+            'local_augmented_teacher_log' => 'remid',
+        ];
+
+        foreach ($tables as $tablename => $reminderfield) {
+            $table = new xmldb_table($tablename);
+            $field = new xmldb_field('courseid', XMLDB_TYPE_INTEGER, '18', null, null, null, null, 'userid');
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+
+            $index = new xmldb_index('courseid_ix', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+
+            $index = new xmldb_index('userid_courseid_ix', XMLDB_INDEX_NOTUNIQUE, ['userid', 'courseid']);
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+
+            // Backfill in batches while the reminder still provides the course association.
+            do {
+                $sql = "SELECT item.id, COALESCE(rem.courseid, cm.course) AS courseid
+                          FROM {" . $tablename . "} item
+                          JOIN {local_augmented_teacher_rem} rem ON rem.id = item." . $reminderfield . "
+                          LEFT JOIN {course_modules} cm ON cm.id = rem.cmid
+                         WHERE item.courseid IS NULL AND COALESCE(rem.courseid, cm.course) > 0";
+                $records = $DB->get_records_sql($sql, [], 0, 500);
+                foreach ($records as $record) {
+                    $DB->set_field($tablename, 'courseid', $record->courseid, ['id' => $record->id]);
+                }
+            } while (!empty($records));
+        }
+
+        upgrade_plugin_savepoint(true, 2026110500, 'local', 'augmented_teacher');
+    }
+
     return true;
 }
