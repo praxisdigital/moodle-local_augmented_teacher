@@ -23,6 +23,8 @@
  * @copyright  (C) 2017 SmartLearning Inc https://www.smartlearning.dk
  */
 
+use local_augmented_teacher\app\mergedmessages\RecipientIdentity;
+
 require_once(dirname(dirname(dirname(__FILE__))) . '/config.php');
 require_once($CFG->dirroot.'/user/lib.php');
 require_once($CFG->libdir.'/tablelib.php');
@@ -327,7 +329,8 @@ if ($bulkoperations && $mode === MODE_BRIEF) {
 $tablecolumns[] = 'userpic';
 $tablecolumns[] = 'fullname';
 
-$extrafields = \core_user\fields::get_identity_fields($context);
+$identity = new RecipientIdentity($context);
+$extrafields = $identity->get_fields();
 $tableheaders[] = get_string('userpic');
 $tableheaders[] = get_string('fullnameuser');
 
@@ -394,12 +397,8 @@ list($esql, $params) = get_enrolled_sql($context, null, $currentgroup, true);
 $joins = array("FROM {user} u");
 $wheres = array();
 
-$userfields = array('username', 'email', 'city', 'country', 'lang', 'timezone', 'maildisplay');
-$core_userfields = \core_user\fields::for_userpic();
-$core_userfields->including(...$userfields);
-$selects = $core_userfields->get_sql('u', false, '', 'id', false)->selects;
-
-$select = "SELECT $selects, COALESCE(ul.timeaccess, 0) AS lastaccess";
+$usersql = $identity->get_user_sql();
+$select = "SELECT {$usersql->selects}, COALESCE(ul.timeaccess, 0) AS lastaccess";
 $joins[] = "JOIN ($esql) e ON e.id = u.id"; // Course enrolled users only.
 $joins[] = "LEFT JOIN {user_lastaccess} ul ON (ul.userid = u.id AND ul.courseid = :courseid)";
 $params['courseid'] = $course->id;
@@ -495,8 +494,13 @@ $matchcount = $DB->count_records_sql("SELECT COUNT(u.id) $from $where", $params)
 $table->initialbars(true);
 $table->pagesize($perpage, $matchcount);
 
-// List of users at the current visible page - paging makes it relatively short.
-$userlist = $DB->get_recordset_sql("$select $from $where $sort", $params, $table->get_page_start(), $table->get_page_size());
+// Custom profile data is only needed for the visible rows, not for participant counts.
+$userlist = $DB->get_recordset_sql(
+    "$select $from {$usersql->joins} $where $sort",
+    array_merge($params, $usersql->params),
+    $table->get_page_start(),
+    $table->get_page_size()
+);
 
 // If there are multiple Roles in the course, then show a drop down menu for switching.
 if (count($rolenames) > 1) {
@@ -670,7 +674,7 @@ if ($mode === MODE_USERDETAILS) {    // Print simple listing.
                         continue;
                     }
                     $row->cells[1]->text .= \core_user\fields::get_display_name($field) .
-                            get_string('labelsep', 'langconfig') . s($user->{$field}) . '<br />';
+                            get_string('labelsep', 'langconfig') . s($identity->get_value($user, $field)) . '<br />';
                 }
                 if (($user->city or $user->country) and (!isset($hiddenfields['city']) or !isset($hiddenfields['country']))) {
                     $row->cells[1]->text .= get_string('city').get_string('labelsep', 'langconfig');
@@ -814,7 +818,7 @@ if ($mode === MODE_USERDETAILS) {    // Print simple listing.
 
             if ($mode === MODE_BRIEF) {
                 foreach ($extrafields as $field) {
-                    $data[] = $user->{$field};
+                    $data[] = s($identity->get_value($user, $field));
                 }
             }
             if ($mode === MODE_BRIEF && !isset($hiddenfields['city'])) {
