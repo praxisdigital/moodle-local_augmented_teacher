@@ -72,7 +72,7 @@ final class recipient_identity_test extends advanced_testcase {
             $this->assertSame($value, $identity->get_value($rows[$first->id], $field));
         }
         $this->assertSame('', $identity->get_value($rows[$second->id], 'phone1'));
-        $this->assertObjectHasProperty('profile_field_team', $rows[$second->id]);
+        $this->assertTrue(property_exists($rows[$second->id], 'profile_field_team'));
         $this->assertNull($rows[$second->id]->profile_field_team);
         $this->assertSame('', $identity->get_value($rows[$second->id], 'profile_field_team'));
         $this->assertDebuggingNotCalled();
